@@ -1,0 +1,93 @@
+version: "3"
+services:
+  pg_master:
+    build: ./master
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=hamed
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=hamed
+      - PG_REP_USER=rep
+      - PG_REP_PASSWORD=123456
+    networks:
+      default:
+        aliases:
+          - pg_cluster
+    ports:
+      - 5442:5432 
+  pg_slave:
+    build: ./slave
+    environment:
+      - POSTGRES_USER=hamed
+      - POSTGRES_PASSWORD=123456
+      - POSTGRES_DB=hamed
+      - PG_REP_USER=rep
+      - PG_REP_PASSWORD=123456
+      - PG_MASTER_HOST=pg_master
+    networks:
+      default:
+        aliases:
+          - pg_cluster
+    ports:
+      - 5443:5432 
+  pgbouncer-pg_master:
+    image: brainsam/pgbouncer:1.12.0
+    environment:
+      DB_HOST: pg_master
+      DB_USER: hamed           # define credentials
+      DB_PASSWORD: 123456       # define credentials
+      DB_port: 5432
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 56
+      MAX_CLIENT_CONN: 10000
+    # volumes:
+    #   - ./pgbouncer:/etc/pgbouncer
+    links:
+      - pg_master:pg_master
+    ports:
+      - 6432:6432   
+  pgbouncer-pg_slave:
+    image: brainsam/pgbouncer:1.12.0
+    environment:
+      DB_HOST: pg_slave
+      DB_USER: hamed           # define credentials
+      DB_PASSWORD: 123456       # define credentials
+      DB_port: 5432
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 56
+      MAX_CLIENT_CONN: 10000
+    # volumes:
+    #   - ./pgbouncer:/etc/pgbouncer
+    links:
+      - pg_slave:pg_slave
+    ports:
+      - 6434:6432   
+  postgres:
+    image: postgres:11.7
+    environment:
+      POSTGRES_USER: postgres     # define credentials
+      POSTGRES_PASSWORD: postgres # define credentials
+      POSTGRES_DB: postgres       # define database
+    ports:
+      - 5432:5432   
+    # command: postgres -c 'max_connections=10000' -c 'shared_buffers=512MB'
+  # Postgres database.
+  pgbouncer:
+    image: brainsam/pgbouncer:1.12.0
+    environment:
+      DB_HOST: postgres
+      DB_USER: postgres           # define credentials
+      DB_PASSWORD: postgres       # define credentials
+      DB_port: 5432
+      POOL_MODE: transaction
+      DEFAULT_POOL_SIZE: 56
+      MAX_CLIENT_CONN: 10000
+    # volumes:
+    #   - ./pgbouncer:/etc/pgbouncer
+    links:
+      - postgres:postgres
+    ports:
+      - 6433:6432   
+volumes:
+  pg_data:
